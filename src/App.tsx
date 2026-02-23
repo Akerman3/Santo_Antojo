@@ -25,9 +25,6 @@ import {
   PhoneOff,
   Plus,
   ShieldBan,
-  Phone,
-  Image,
-  Upload,
   Paperclip,
   ToggleLeft,
   ToggleRight,
@@ -36,7 +33,6 @@ import {
   Smartphone,
   Eye,
   X,
-  Printer,
   Download
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -249,24 +245,7 @@ function App() {
       // Mientras no haya sesión (anónima o real), no intentamos leer
       if (!user) return;
 
-      // --- Registro de Token para Notificaciones Push en Firestore (Colección Global) ---
-      const storedToken = localStorage.getItem('last_push_token');
-      if (storedToken) {
-        try {
-          // Guardamos en el proyecto secundario (businesschat-admin) para que el push funcione en Android
-          const tokenRef = doc(notificationDb, 'adminTokens', storedToken);
-          await setDoc(tokenRef, {
-            token: storedToken,
-            enabled: true,
-            updatedAt: new Date().toISOString(),
-            label: 'Admin Device'
-          }, { merge: true });
-          console.log('[Push] Token guardado en adminTokens');
-        } catch (e) {
-          console.warn('[Push] Error guardando token admin:', e);
-        }
-      }
-
+      // --- REGISTRO DE LISTENERS (Primero lo más importante: mostrar datos) ---
       unsubStats = onSnapshot(
         doc(firebaseDb, 'stats', 'totalsuscriptores'),
         (snap) => {
@@ -303,6 +282,17 @@ function App() {
         },
         (err) => console.warn('[Firebase] Error leyendo Afiliados:', err.code)
       );
+
+      // --- REGISTRO DE PUSH TOKENS (Segundo plano, sin await para no bloquear) ---
+      const storedToken = localStorage.getItem('last_push_token');
+      if (storedToken) {
+        setDoc(doc(notificationDb, 'adminTokens', storedToken), {
+          token: storedToken,
+          enabled: true,
+          updatedAt: new Date().toISOString(),
+          label: 'Admin Device'
+        }, { merge: true }).catch(e => console.warn('[Push] Error guardando token admin:', e));
+      }
 
     });
 
@@ -508,26 +498,26 @@ function App() {
   const generatePDFBlob = async (): Promise<File> => {
     if (!receiptRef.current) throw new Error('No se encontró el recibo');
 
-    // Configuración para alta calidad
+    // Capturar en alta resolución asegurando que el fondo sea blanco
     const canvas = await html2canvas(receiptRef.current, {
-      scale: 2,
+      scale: 3, // Mayor escala para nitidez extrema en texto
       useCORS: true,
       logging: false,
-      backgroundColor: '#ffffff'
+      backgroundColor: '#ffffff',
+      windowWidth: 816, // Forzar ancho de renderizado lógico
+      windowHeight: 1056
     });
 
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const imgData = canvas.toDataURL('image/png'); // Usar PNG para texto ultra nítido
     const pdf = new jsPDF({
       orientation: 'portrait',
-      unit: 'mm',
-      format: 'letter'
+      unit: 'px',
+      format: [816, 1056],
+      hotfixes: ["px_scaling"]
     });
 
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+    // Ajustar imagen al tamaño de la página
+    pdf.addImage(imgData, 'PNG', 0, 0, 816, 1056, undefined, 'FAST');
     const blob = pdf.output('blob');
     const fileName = `Recibo_${previewData?.afiliado?.name?.replace(/\s+/g, '_') || 'Pago'}.pdf`;
 
@@ -2531,82 +2521,89 @@ function App() {
             </div>
 
             {/* Contenido (Simulación del Papel) */}
-            <div className="flex-1 overflow-auto p-2 sm:p-10 bg-slate-950/50 flex justify-start sm:justify-center items-start">
+            <div className="flex-1 overflow-auto p-4 sm:p-10 bg-slate-950/50 flex justify-center items-start">
               <div
-                ref={receiptRef}
-                className="bg-white shadow-2xl p-[10mm] sm:p-[15mm] text-slate-900 origin-top-left transition-transform duration-300"
+                className="origin-top shadow-2xl transition-transform duration-300"
                 style={{
-                  width: '216mm',
-                  minHeight: '279mm',
-                  transform: window.innerWidth < 768 ? `scale(${(window.innerWidth - 40) / 816})` : 'none',
-                  marginTop: window.innerWidth < 768 ? '0' : '0'
+                  transform: window.innerWidth < 768 ? `scale(${(window.innerWidth - 48) / 816})` : 'none',
                 }}
               >
-                <div className="flex justify-between items-start mb-8">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-slate-100">
-                      <img src="/logo.png" className="w-full h-full object-contain" alt="Logo" />
+                <div
+                  ref={receiptRef}
+                  className="bg-white p-[15mm] text-slate-900 overflow-hidden"
+                  style={{
+                    width: '816px',
+                    minHeight: '1056px',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}
+                >
+                  <div className="flex justify-between items-start mb-8">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-xl overflow-hidden flex items-center justify-center bg-slate-100">
+                        <img src="/logo.png" className="w-full h-full object-contain" alt="Logo" />
+                      </div>
+                      <div>
+                        <h1 className="m-0 text-2xl font-black text-[#012e67] tracking-tighter">AL CALCULADORA</h1>
+                        <p className="m-0 text-[10px] text-slate-500 font-bold tracking-[0.15em] uppercase">SISTEMA DE ADMINISTRACIÓN</p>
+                      </div>
+                    </div>
+                    <div className="bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-black uppercase border border-emerald-600 shadow-sm">PAGO REGISTRADO</div>
+                  </div>
+
+                  <div className="border-b-2 border-slate-100 pb-4 mb-6">
+                    <p className="m-0 text-sm font-bold text-slate-700">RECIBO DE COMISIONES #2024-XXXX</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-12 mb-10">
+                    <div>
+                      <h4 className="text-[10px] uppercase text-slate-400 font-bold border-b-2 border-slate-100 pb-1 mb-3 letter-spacing-1">PAGADOR</h4>
+                      <p className="text-sm font-bold mb-1 text-slate-900">{paymentConfig.payerName}</p>
+                      <p className="text-[12px] text-slate-600 leading-relaxed">{paymentConfig.payerAddress}</p>
+                      <p className="text-[12px] text-slate-600 mt-1 font-semibold uppercase">RFC: {paymentConfig.payerRFC}</p>
                     </div>
                     <div>
-                      <h1 className="m-0 text-2xl font-black text-[#012e67] tracking-tighter">AL CALCULADORA</h1>
-                      <p className="m-0 text-[10px] text-slate-500 font-bold tracking-[0.15em] uppercase">SISTEMA DE ADMINISTRACIÓN</p>
+                      <h4 className="text-[10px] uppercase text-slate-400 font-bold border-b-2 border-slate-100 pb-1 mb-3 letter-spacing-1">BENEFICIARIO</h4>
+                      <p className="text-sm font-bold mb-1 text-slate-900">{previewData.afiliado.name}</p>
+                      <p className="text-[12px] text-slate-600"><span className="font-semibold text-slate-400">ID:</span> {previewData.afiliado.id}</p>
+                      <p className="text-[12px] text-slate-600 uppercase"><span className="font-semibold text-slate-400">Cód:</span> {previewData.afiliado.code}</p>
                     </div>
                   </div>
-                  <div className="bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-black uppercase border border-emerald-600 shadow-sm">PAGO REGISTRADO</div>
-                </div>
 
-                <div className="border-b-2 border-slate-100 pb-4 mb-6">
-                  <p className="m-0 text-sm font-bold text-slate-700">RECIBO DE COMISIONES #2024-XXXX</p>
-                </div>
+                  <table className="w-full border-collapse mb-10">
+                    <thead>
+                      <tr className="bg-slate-50 border-b-2 border-slate-200">
+                        <th className="text-left p-4 text-[11px] uppercase font-bold text-slate-500">Concepto / Periodo</th>
+                        <th className="text-center p-4 text-[11px] uppercase font-bold text-slate-500">Cant.</th>
+                        <th className="text-right p-4 text-[11px] uppercase font-bold text-slate-500">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                      <tr>
+                        <td className="p-4 font-semibold">Suscripción Mensual — Nuevos usuarios</td>
+                        <td className="p-4 text-center font-bold">{previewData.mensualN}</td>
+                        <td className="p-4 text-right font-black text-slate-900">${(previewData.mensualN * paymentConfig.mensualPrice).toLocaleString('es-MX')} MXN</td>
+                      </tr>
+                      <tr>
+                        <td className="p-4 font-semibold">Suscripción Anual — Nuevos usuarios</td>
+                        <td className="p-4 text-center font-bold">{previewData.anualN}</td>
+                        <td className="p-4 text-right font-black text-slate-900">${(previewData.anualN * paymentConfig.anualPrice).toLocaleString('es-MX')} MXN</td>
+                      </tr>
+                    </tbody>
+                  </table>
 
-                <div className="grid grid-cols-2 gap-12 mb-10">
-                  <div>
-                    <h4 className="text-[10px] uppercase text-slate-400 font-bold border-b-2 border-slate-100 pb-1 mb-3 letter-spacing-1">PAGADOR</h4>
-                    <p className="text-sm font-bold mb-1 text-slate-900">{paymentConfig.payerName}</p>
-                    <p className="text-[12px] text-slate-600 leading-relaxed">{paymentConfig.payerAddress}</p>
-                    <p className="text-[12px] text-slate-600 mt-1 font-semibold uppercase">RFC: {paymentConfig.payerRFC}</p>
+                  <div className="border-[3px] border-emerald-500 rounded-2xl p-8 bg-emerald-50/50 text-center mb-12 shadow-inner">
+                    <p className="text-lg font-black text-emerald-800 mb-1 tracking-tight">MONTO TOTAL A LIQUIDAR</p>
+                    <p className="text-6xl font-black text-emerald-700 leading-none tracking-tighter">
+                      ${((previewData.mensualN * paymentConfig.mensualPrice) + (previewData.anualN * paymentConfig.anualPrice)).toLocaleString('es-MX')}
+                      <span className="text-2xl ml-2 font-bold opacity-40">MXN</span>
+                    </p>
                   </div>
-                  <div>
-                    <h4 className="text-[10px] uppercase text-slate-400 font-bold border-b-2 border-slate-100 pb-1 mb-3 letter-spacing-1">BENEFICIARIO</h4>
-                    <p className="text-sm font-bold mb-1 text-slate-900">{previewData.afiliado.name}</p>
-                    <p className="text-[12px] text-slate-600"><span className="font-semibold text-slate-400">ID:</span> {previewData.afiliado.id}</p>
-                    <p className="text-[12px] text-slate-600 uppercase"><span className="font-semibold text-slate-400">Cód:</span> {previewData.afiliado.code}</p>
+
+                  <div className="text-[10px] text-zinc-400 text-center leading-relaxed mt-20 opacity-80 border-t border-zinc-100 pt-6">
+                    Este es un recibo digital oficial generado por el sistema administrativo de <strong>AL CALCULADORA</strong>.<br />
+                    Gracias por su colaboración comercial.
                   </div>
-                </div>
-
-                <table className="w-full border-collapse mb-10">
-                  <thead>
-                    <tr className="bg-slate-50 border-b-2 border-slate-200">
-                      <th className="text-left p-4 text-[11px] uppercase font-bold text-slate-500">Concepto / Periodo</th>
-                      <th className="text-center p-4 text-[11px] uppercase font-bold text-slate-500">Cant.</th>
-                      <th className="text-right p-4 text-[11px] uppercase font-bold text-slate-500">Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-                    <tr>
-                      <td className="p-4 font-semibold">Suscripción Mensual — Nuevos usuarios</td>
-                      <td className="p-4 text-center font-bold">{previewData.mensualN}</td>
-                      <td className="p-4 text-right font-black text-slate-900">${(previewData.mensualN * paymentConfig.mensualPrice).toLocaleString('es-MX')} MXN</td>
-                    </tr>
-                    <tr>
-                      <td className="p-4 font-semibold">Suscripción Anual — Nuevos usuarios</td>
-                      <td className="p-4 text-center font-bold">{previewData.anualN}</td>
-                      <td className="p-4 text-right font-black text-slate-900">${(previewData.anualN * paymentConfig.anualPrice).toLocaleString('es-MX')} MXN</td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                <div className="border-[3px] border-emerald-500 rounded-2xl p-8 bg-emerald-50/50 text-center mb-12 shadow-inner">
-                  <p className="text-lg font-black text-emerald-800 mb-1 tracking-tight">MONTO TOTAL A LIQUIDAR</p>
-                  <p className="text-6xl font-black text-emerald-700 leading-none tracking-tighter">
-                    ${((previewData.mensualN * paymentConfig.mensualPrice) + (previewData.anualN * paymentConfig.anualPrice)).toLocaleString('es-MX')}
-                    <span className="text-2xl ml-2 font-bold opacity-40">MXN</span>
-                  </p>
-                </div>
-
-                <div className="text-[10px] text-slate-400 text-center leading-relaxed mt-20 opacity-80 border-t border-slate-100 pt-6">
-                  Este es un recibo digital oficial generado por el sistema administrativo de <strong>AL CALCULADORA</strong>.<br />
-                  Gracias por su colaboración comercial.
                 </div>
               </div>
             </div>
@@ -2616,7 +2613,7 @@ function App() {
               <button
                 disabled={sharing}
                 onClick={() => setPreviewData(null)}
-                className="px-6 py-2.5 text-xs font-bold uppercase text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+                className="px-6 py-2.5 text-xs font-bold uppercase text-zinc-400 hover:text-white transition-colors disabled:opacity-50"
               >
                 Cerrar
               </button>
