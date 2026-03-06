@@ -1,18 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nuevo Proyecto</title>
-  </head>
-  <body>
-    <div id="root">
-      <div style="min-height: 100vh; background: black; color: #D4AF37; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: serif;">
-        <h1 style="font-size: 2rem; margin-bottom: 1rem;">SANTO ANTOJO</h1>
-        <p style="font-size: 0.8rem; letter-spacing: 0.2em; opacity: 0.5;">CARGANDO SISTEMA...</p>
-      </div>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nuevo Proyecto</title>
+</head>
+
+<body>
+  <div id="root">
+    <div
+      style="min-height: 100vh; background: black; color: #D4AF37; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: serif;">
+      <h1 style="font-size: 2rem; margin-bottom: 1rem;">SANTO ANTOJO</h1>
+      <p id="boot-status" style="font-size: 0.8rem; letter-spacing: 0.2em; opacity: 0.5;">CARGANDO SISTEMA...</p>
     </div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+  </div>
+  <script>
+    // Debug line to confirm simple JS runs
+    setTimeout(() => {
+      const el = document.getElementById('boot-status');
+      if (el) el.innerText = 'INICIANDO MOTOR...';
+    }, 500);
+  </script>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

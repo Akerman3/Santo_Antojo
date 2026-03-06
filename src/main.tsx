@@ -64,10 +64,23 @@ class RootErrorBoundary extends React.Component<{ children: React.ReactNode }, {
   }
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <RootErrorBoundary>
-      <App />
-    </RootErrorBoundary>
-  </StrictMode>
-);
+console.log('Main.tsx evaluation started...');
+
+try {
+  const container = document.getElementById('root');
+  if (!container) throw new Error('Root container not found');
+
+  const root = createRoot(container);
+  console.log('React Root created, rendering...');
+
+  root.render(
+    <StrictMode>
+      <RootErrorBoundary>
+        <App />
+      </RootErrorBoundary>
+    </StrictMode>
+  );
+  console.log('Initial render call completed');
+} catch (err) {
+  console.error('FATAL RENDER ERROR:', err);
+}

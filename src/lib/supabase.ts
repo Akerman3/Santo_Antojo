@@ -5,8 +5,25 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
-if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('⚠️ SUPABASE ERROR: Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in Vercel Environment Variables.');
-}
+let clientInstance: any = null;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const getSupabase = () => {
+    if (clientInstance) return clientInstance;
+
+    console.log('--- INITIALIZING SUPABASE CLIENT ---');
+    if (!supabaseUrl || !supabaseAnonKey) {
+        console.error('⚠️ SUPABASE ERROR: Missing API keys in Environment Variables.');
+    }
+
+    try {
+        clientInstance = createClient(supabaseUrl, supabaseAnonKey);
+        console.log('✅ Supabase Client Created');
+    } catch (err) {
+        console.error('❌ Failed to create Supabase client:', err);
+    }
+
+    return clientInstance;
+};
+
+// For backward compatibility while we refactor
+export const supabase = getSupabase();
