@@ -16,20 +16,33 @@ const MembershipView = () => {
     }, [id]);
 
     const fetchMembership = async () => {
+        if (!id) return;
         setLoading(true);
+        setError(null);
         try {
-            const { data, error: fetchError } = await supabase
+            // First attempt: exact match with the ID provided
+            let { data, error: fetchError } = await supabase
                 .from('memberships')
                 .select('*')
-                .or(`qr_code_id.eq.${id},qr_code_id.eq.https://santo-antojo.vercel.app/membership/${id}`)
-                .single();
+                .eq('qr_code_id', id)
+                .maybeSingle();
 
-            if (fetchError || !data) {
-                // Mock data for demo if not found in DB yet
-                if (id?.startsWith('SA-')) {
+            // Second attempt: if not found, it might be stored with the full URL
+            if (!data) {
+                const { data: altData } = await supabase
+                    .from('memberships')
+                    .select('*')
+                    .ilike('qr_code_id', `%${id}%`)
+                    .maybeSingle();
+                data = altData;
+            }
+
+            if (!data) {
+                // Mock for demo if it starts with SA-
+                if (id.startsWith('SA-')) {
                     setMembership({
                         qr_code_id: id,
-                        current_stamps: 4,
+                        current_stamps: 0,
                         max_stamps: 10,
                         status: 'active'
                     });
@@ -40,7 +53,8 @@ const MembershipView = () => {
                 setMembership(data);
             }
         } catch (e) {
-            setError('Error al cargar la información.');
+            console.error('Error in fetchMembership:', e);
+            setError('Error al conectar con el servidor.');
         } finally {
             setLoading(false);
         }

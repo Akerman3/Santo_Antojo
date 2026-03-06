@@ -273,14 +273,18 @@ const AdminDashboard = () => {
                         </div>
 
                         <div className="p-6 overflow-y-auto grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 print:block">
-                            {selectedBatch.memberships.map((m: any) => (
-                                <div key={m.id} className="bg-white p-3 rounded-lg flex flex-col items-center gap-2 print:break-inside-avoid print:mb-8">
-                                    <QRCodeSVG value={`https://santo-antojo.vercel.app/membership/${m.qr_code_id}`} size={100} level="H" />
-                                    <p className="text-[10px] text-zinc-900 font-mono font-bold break-all text-center">
-                                        {m.qr_code_id}
-                                    </p>
-                                </div>
-                            ))}
+                            {selectedBatch.memberships.map((m: any) => {
+                                // Extract the short ID if it was stored as a full URL
+                                const cleanId = m.qr_code_id.split('/').pop() || m.qr_code_id;
+                                return (
+                                    <div key={m.id} className="bg-white p-3 rounded-lg flex flex-col items-center gap-2 print:break-inside-avoid print:mb-8">
+                                        <QRCodeSVG value={`https://santo-antojo.vercel.app/membership/${cleanId}`} size={100} level="H" />
+                                        <p className="text-[10px] text-zinc-900 font-mono font-bold break-all text-center">
+                                            {cleanId}
+                                        </p>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
