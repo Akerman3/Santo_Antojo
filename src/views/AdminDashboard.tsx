@@ -118,9 +118,9 @@ const AdminDashboard = () => {
 
             if (batchError) throw batchError;
 
-            // 2. Generate 50 memberships with the live URL as part of the ID or for the QR content
+            // 2. Generate 50 memberships with a clean short ID
             const memberships = Array.from({ length: 50 }).map((_, i) => ({
-                qr_code_id: `https://santo-antojo.vercel.app/membership/SA-B${batch.batch_number}-${String(i + 1).padStart(3, '0')}`,
+                qr_code_id: `SA-B${batch.batch_number}-${String(i + 1).padStart(3, '0')}`,
                 batch_id: batch.id,
                 max_stamps: 10,
                 current_stamps: 0,
@@ -275,9 +275,9 @@ const AdminDashboard = () => {
                         <div className="p-6 overflow-y-auto grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 print:block">
                             {selectedBatch.memberships.map((m: any) => (
                                 <div key={m.id} className="bg-white p-3 rounded-lg flex flex-col items-center gap-2 print:break-inside-avoid print:mb-8">
-                                    <QRCodeSVG value={m.qr_code_id} size={100} level="H" />
+                                    <QRCodeSVG value={`https://santo-antojo.vercel.app/membership/${m.qr_code_id}`} size={100} level="H" />
                                     <p className="text-[10px] text-zinc-900 font-mono font-bold break-all text-center">
-                                        {m.qr_code_id.split('/').pop()}
+                                        {m.qr_code_id}
                                     </p>
                                 </div>
                             ))}

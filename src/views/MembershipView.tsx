@@ -21,7 +21,7 @@ const MembershipView = () => {
             const { data, error: fetchError } = await supabase
                 .from('memberships')
                 .select('*')
-                .eq('qr_code_id', id)
+                .or(`qr_code_id.eq.${id},qr_code_id.eq.https://santo-antojo.vercel.app/membership/${id}`)
                 .single();
 
             if (fetchError || !data) {
