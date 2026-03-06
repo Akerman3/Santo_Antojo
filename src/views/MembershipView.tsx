@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Check, Star, Loader2, AlertCircle } from 'lucide-react';
@@ -20,8 +20,10 @@ const MembershipView = () => {
         setLoading(true);
         setError(null);
         try {
+            console.log('Fetching membership for ID:', id);
+
             // First attempt: exact match with the ID provided
-            let { data, error: fetchError } = await supabase
+            let { data } = await supabase
                 .from('memberships')
                 .select('*')
                 .eq('qr_code_id', id)
@@ -38,6 +40,7 @@ const MembershipView = () => {
             }
 
             if (!data) {
+                console.warn('Membership not found in DB, using fallback for ID:', id);
                 // Mock for demo if it starts with SA-
                 if (id.startsWith('SA-')) {
                     setMembership({
@@ -50,6 +53,7 @@ const MembershipView = () => {
                     setError('Membresía no encontrada.');
                 }
             } else {
+                console.log('Membership found:', data);
                 setMembership(data);
             }
         } catch (e) {
@@ -62,19 +66,20 @@ const MembershipView = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
+            <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
                 <Loader2 className="animate-spin text-gold" size={48} />
+                <p className="text-gold font-serif text-sm tracking-widest animate-pulse">CARGANDO...</p>
             </div>
         );
     }
 
-    if (error) {
+    if (error || !membership) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
                 <AlertCircle className="text-red-400 mb-4" size={64} />
                 <h2 className="text-2xl font-serif font-bold text-white mb-2">¡Oops!</h2>
-                <p className="text-zinc-500">{error}</p>
-                <p className="text-zinc-600 text-sm mt-4 italic">Asegúrate de haber escaneado el código correcto.</p>
+                <p className="text-zinc-500">{error || 'No pudimos cargar tu membresía.'}</p>
+                <p className="text-zinc-600 text-sm mt-4 italic">Intenta escanear el código de nuevo.</p>
             </div>
         );
     }
