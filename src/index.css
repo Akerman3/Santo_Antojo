@@ -1,67 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    @apply antialiased text-slate-200 bg-[#030712];
-  }
-}
-
 :root {
-  color-scheme: dark;
+  --background: 0 0% 4%;
+  --foreground: 0 0% 100%;
+  
+  --primary: 43 67% 53%; /* #D4AF37 Gold */
+  --primary-foreground: 0 0% 0%;
+  
+  --card: 0 0% 7%;
+  --card-foreground: 0 0% 100%;
+  
+  --border: 0 0% 15%;
+  --muted: 0 0% 60%;
+  
+  --accent: 43 67% 53%;
+  --accent-foreground: 0 0% 100%;
 }
 
-@layer utilities {
-  .animate-in {
-    animation-duration: 300ms;
-    animation-fill-mode: forwards;
-    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-  .fade-in {
-    animation-name: fadeIn;
-  }
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
 
-  .slide-in-from-left-2 {
-    animation-name: slideInFromLeft2;
-  }
+h1, h2, h3, .font-serif {
+  font-family: 'Playfair Display', serif;
+}
 
-  .slide-in-from-bottom-4 {
-    animation-name: slideInFromBottom4;
-  }
+.gold-gradient {
+  background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
+.glass-card {
+  background: rgba(26, 26, 26, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  border-radius: 1.5rem;
+}
 
-    to {
-      opacity: 1;
-    }
-  }
+.stamp-slot {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 2px dashed rgba(212, 175, 55, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
 
-  @keyframes slideInFromLeft2 {
-    from {
-      transform: translateX(-0.5rem);
-      opacity: 0;
-    }
+.stamp-slot.active {
+  background: linear-gradient(135deg, #D4AF37, #F9E2AF);
+  border: none;
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+}
 
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
-  }
+/* Custom button styles */
+.btn-gold {
+  background: linear-gradient(135deg, #D4AF37, #B38728);
+  color: black;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
 
-  @keyframes slideInFromBottom4 {
-    from {
-      transform: translateY(1rem);
-      opacity: 0;
-    }
+.btn-gold:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(212, 175, 55, 0.3);
+}
 
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
+.btn-gold:active {
+  transform: translateY(0);
 }
