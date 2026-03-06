@@ -10,8 +10,13 @@ const MembershipView = () => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        console.log('MembershipView mounted with ID:', id);
         if (id) {
             fetchMembership();
+        } else {
+            console.warn('No ID provided in URL');
+            setLoading(false);
+            setError('Falta el código de membresía.');
         }
     }, [id]);
 
@@ -20,17 +25,20 @@ const MembershipView = () => {
         setLoading(true);
         setError(null);
         try {
-            console.log('Fetching membership for ID:', id);
+            console.log('🔍 Buscando membresía:', id);
 
-            // First attempt: exact match with the ID provided
-            let { data } = await supabase
+            // 1. Try exact match
+            let { data, error: fetchError } = await supabase
                 .from('memberships')
                 .select('*')
                 .eq('qr_code_id', id)
                 .maybeSingle();
 
-            // Second attempt: if not found, it might be stored with the full URL
+            if (fetchError) console.error('Supabase error:', fetchError);
+
+            // 2. Try substring (for legacy/full URL data)
             if (!data) {
+                console.log('Exact match failed, trying substring search...');
                 const { data: altData } = await supabase
                     .from('memberships')
                     .select('*')
@@ -40,9 +48,9 @@ const MembershipView = () => {
             }
 
             if (!data) {
-                console.warn('Membership not found in DB, using fallback for ID:', id);
-                // Mock for demo if it starts with SA-
-                if (id.startsWith('SA-')) {
+                console.warn('❌ Not found in DB');
+                if (id.includes('SA-')) {
+                    console.log('Using demo fallback data');
                     setMembership({
                         qr_code_id: id,
                         current_stamps: 0,
@@ -50,15 +58,15 @@ const MembershipView = () => {
                         status: 'active'
                     });
                 } else {
-                    setError('Membresía no encontrada.');
+                    setError('Esta tarjeta no es válida.');
                 }
             } else {
-                console.log('Membership found:', data);
+                console.log('✅ Received membership:', data);
                 setMembership(data);
             }
         } catch (e) {
-            console.error('Error in fetchMembership:', e);
-            setError('Error al conectar con el servidor.');
+            console.error('Fatal fetch error:', e);
+            setError('Error de conexión con el servidor.');
         } finally {
             setLoading(false);
         }
@@ -66,7 +74,7 @@ const MembershipView = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
+            <div className="min-h-screen flex flex-col items-center justify-center space-y-4 bg-[#0a0a0a]">
                 <Loader2 className="animate-spin text-gold" size={48} />
                 <p className="text-gold font-serif text-sm tracking-widest animate-pulse">CARGANDO...</p>
             </div>
@@ -75,11 +83,11 @@ const MembershipView = () => {
 
     if (error || !membership) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+            <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-[#0a0a0a]">
                 <AlertCircle className="text-red-400 mb-4" size={64} />
                 <h2 className="text-2xl font-serif font-bold text-white mb-2">¡Oops!</h2>
-                <p className="text-zinc-500">{error || 'No pudimos cargar tu membresía.'}</p>
-                <p className="text-zinc-600 text-sm mt-4 italic">Intenta escanear el código de nuevo.</p>
+                <p className="text-zinc-500">{error || 'No pudimos encontrar tu membresía.'}</p>
+                <p className="text-zinc-600 text-sm mt-4 italic">Por favor, intenta escanear el código de nuevo.</p>
             </div>
         );
     }
@@ -87,7 +95,7 @@ const MembershipView = () => {
     const slots = Array.from({ length: membership.max_stamps || 10 });
 
     return (
-        <div className="min-h-screen flex flex-col items-center p-6 pt-12 space-y-12">
+        <div className="min-h-screen flex flex-col items-center p-6 pt-12 space-y-12 bg-[#0a0a0a] overflow-x-hidden">
             {/* Header */}
             <div className="text-center space-y-2">
                 <h1 className="text-4xl font-serif gold-gradient font-bold tracking-widest uppercase">
@@ -105,7 +113,7 @@ const MembershipView = () => {
                 <div className="flex justify-between items-start z-10">
                     <div>
                         <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1">ID de Cliente</p>
-                        <p className="text-sm font-mono text-zinc-300 font-bold">{membership.qr_code_id}</p>
+                        <p className="text-sm font-mono text-zinc-300 font-bold">{membership.qr_code_id.split('/').pop()}</p>
                     </div>
                     <Star className="text-gold" size={24} fill="currentColor" />
                 </div>
@@ -142,7 +150,7 @@ const MembershipView = () => {
             <div className="max-w-sm w-full text-center space-y-4">
                 <div className="p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800">
                     <h3 className="text-gold font-bold uppercase tracking-widest text-sm mb-1">Tu Próximo Regalo</h3>
-                    <p className="text-white text-lg font-serif">¡Colecciona 10 sellos y recibe un combo de hamburguesa gratis!</p>
+                    <p className="text-white text-lg font-serif text-pretty">¡Colecciona 10 sellos y recibe un combo de hamburguesa gratis!</p>
                 </div>
 
                 <p className="text-zinc-500 text-xs px-8">

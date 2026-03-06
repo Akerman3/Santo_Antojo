@@ -32,6 +32,7 @@ function App() {
           <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
           <Route path="/scan" element={session ? <Scan /> : <Navigate to="/login" />} />
           <Route path="/membership/:id" element={<MembershipView />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </MainLayout>
     </Router>
