@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Users, CreditCard, CheckCircle, TrendingUp, Clock } from 'lucide-react';
+import { Users, CreditCard, CheckCircle, TrendingUp, Clock, Eye, X, Printer } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 const AdminDashboard = () => {
     const [stats, setStats] = useState({
@@ -10,6 +11,8 @@ const AdminDashboard = () => {
         totalBatches: 0,
     });
     const [recentStamps, setRecentStamps] = useState<any[]>([]);
+    const [batchList, setBatchList] = useState<any[]>([]);
+    const [selectedBatch, setSelectedBatch] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(false);
 
@@ -27,12 +30,26 @@ const AdminDashboard = () => {
 
             if (memError) throw memError;
 
-            // 2. Get total batches
-            const { count: batchCount, error: batchError } = await supabase
+            // 2. Get batches with their memberships
+            const { data: batches, error: batchError } = await supabase
                 .from('batches')
-                .select('*', { count: 'exact', head: true });
+                .select(`
+                    id,
+                    batch_number,
+                    size,
+                    created_at,
+                    memberships (
+                        id,
+                        qr_code_id,
+                        current_stamps,
+                        status
+                    )
+                `)
+                .order('batch_number', { ascending: false });
 
             if (batchError) throw batchError;
+
+            setBatchList(batches || []);
 
             const active = mems.filter(m => m.status === 'active').length;
             const completed = mems.filter(m => m.status === 'completed').length;
@@ -42,7 +59,7 @@ const AdminDashboard = () => {
                 activeMemberships: active,
                 totalStamps: stamps,
                 completedMemberships: completed,
-                totalBatches: batchCount || 0,
+                totalBatches: batches?.length || 0,
             });
 
             // 3. Get recent stamps activity
@@ -63,7 +80,7 @@ const AdminDashboard = () => {
 
             setRecentStamps(logs.map((log: any) => ({
                 id: log.id,
-                customer: `Membresía #${log.membership.qr_code_id}`,
+                customer: `Membresía #${log.membership.qr_code_id.split('/').pop()}`,
                 time: new Date(log.created_at).toLocaleTimeString(),
                 stamps: log.membership.current_stamps,
                 completed: log.membership.current_stamps >= 10
@@ -213,16 +230,61 @@ const AdminDashboard = () => {
                     <div className="pt-4 border-t border-zinc-800">
                         <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">Historial de Lotes</h4>
                         <div className="space-y-2">
-                            {[3, 2, 1].map(n => (
-                                <div key={n} className="flex justify-between items-center text-xs">
-                                    <span className="text-zinc-300">Lote #00{n}</span>
-                                    <span className="text-zinc-500">Completo (50/50)</span>
+                            {batchList.map(batch => (
+                                <div key={batch.id} className="flex justify-between items-center group">
+                                    <span className="text-xs text-zinc-300">Lote #{batch.batch_number}</span>
+                                    <button
+                                        onClick={() => setSelectedBatch(batch)}
+                                        className="text-[10px] text-gold uppercase font-bold tracking-widest flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <Eye size={12} /> Ver QRs
+                                    </button>
                                 </div>
                             ))}
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Batch Detail Modal */}
+            {selectedBatch && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="glass-card w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+                        <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+                            <div>
+                                <h3 className="text-xl font-serif font-bold text-white">Lote #{selectedBatch.batch_number}</h3>
+                                <p className="text-sm text-zinc-500">{selectedBatch.memberships.length} Membresías Generadas</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => window.print()}
+                                    className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-gold hover:bg-gold/10 transition-colors"
+                                    title="Imprimir Lote"
+                                >
+                                    <Printer size={20} />
+                                </button>
+                                <button
+                                    onClick={() => setSelectedBatch(null)}
+                                    className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-500 hover:text-white transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 print:block">
+                            {selectedBatch.memberships.map((m: any) => (
+                                <div key={m.id} className="bg-white p-3 rounded-lg flex flex-col items-center gap-2 print:break-inside-avoid print:mb-8">
+                                    <QRCodeSVG value={m.qr_code_id} size={100} level="H" />
+                                    <p className="text-[10px] text-zinc-900 font-mono font-bold break-all text-center">
+                                        {m.qr_code_id.split('/').pop()}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
