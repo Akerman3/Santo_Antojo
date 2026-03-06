@@ -101,9 +101,9 @@ const AdminDashboard = () => {
 
             if (batchError) throw batchError;
 
-            // 2. Generate 50 memberships
+            // 2. Generate 50 memberships with the live URL as part of the ID or for the QR content
             const memberships = Array.from({ length: 50 }).map((_, i) => ({
-                qr_code_id: `SA-B${batch.batch_number}-${String(i + 1).padStart(3, '0')}`,
+                qr_code_id: `https://santo-antojo.vercel.app/membership/SA-B${batch.batch_number}-${String(i + 1).padStart(3, '0')}`,
                 batch_id: batch.id,
                 max_stamps: 10,
                 current_stamps: 0,
