@@ -15,9 +15,16 @@ const Scan = () => {
     const navigate = useNavigate();
 
     // Sound effect generator
-    const playBeep = (isBonus = false) => {
+    const playBeep = async (isBonus = false) => {
         try {
-            const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
+            if (!AudioContextClass) return;
+
+            const context = new AudioContextClass();
+            if (context.state === 'suspended') {
+                await context.resume();
+            }
+
             const oscillator = context.createOscillator();
             const gain = context.createGain();
 
@@ -30,8 +37,9 @@ const Scan = () => {
 
             oscillator.start();
             // Sharp drop for a crisp "beep"
-            gain.gain.exponentialRampToValueAtTime(0.00001, context.currentTime + (isBonus ? 0.3 : 0.1));
-            oscillator.stop(context.currentTime + (isBonus ? 0.3 : 0.1));
+            gain.gain.setValueAtTime(0.5, context.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + (isBonus ? 0.4 : 0.15));
+            oscillator.stop(context.currentTime + (isBonus ? 0.4 : 0.15));
         } catch (e) {
             console.error('Audio error:', e);
         }
@@ -166,12 +174,12 @@ const Scan = () => {
             if (isDone) {
                 // Special completion message
                 setResult('¡MEMBRESÍA COMPLETADA EXITOSAMENTE!');
-                // Trigger Vibration for 2 seconds
+                // Trigger Vibration for 4 seconds
                 try {
-                    await Haptics.vibrate({ duration: 2000 });
+                    await Haptics.vibrate({ duration: 4000 });
                 } catch (e) {
                     // Fallback to navigator.vibrate if haptics fail
-                    if (navigator.vibrate) navigator.vibrate(2000);
+                    if (navigator.vibrate) navigator.vibrate(4000);
                 }
             } else {
                 // Short impact for normal stamp
