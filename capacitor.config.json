@@ -1,6 +1,6 @@
 {
   "appId": "com.businesschat.admin",
-  "appName": "BusinessChat Admin",
+  "appName": "Panel SA",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "server": {
