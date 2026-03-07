@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
-import { Camera, RefreshCw, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Camera, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -33,24 +33,48 @@ const Scan = () => {
         setSuccess(false);
 
         try {
-            // For web/simulated testing if not on native
             if (!window.hasOwnProperty('Capacitor')) {
                 // Mock scanning for browser development
                 setIsScanning(true);
                 setTimeout(() => {
-                    handleScanResult('SA-B1-024'); // Simulate a scan
+                    handleScanResult('SA-B1-024');
                     setIsScanning(false);
                 }, 1500);
                 return;
             }
 
+            // 1. Ensure permissions (double check)
+            const { camera } = await BarcodeScanner.checkPermissions();
+            if (camera !== 'granted') {
+                const req = await BarcodeScanner.requestPermissions();
+                if (req.camera !== 'granted') {
+                    setError('Permiso de cámara denegado.');
+                    return;
+                }
+            }
+
+            // 2. Check and Install Google Barcode Scanner Module (Android only)
+            const checkModule = await BarcodeScanner.isGoogleBarcodeScannerModuleAvailable();
+            if (!checkModule.available) {
+                setError('Instalando módulo de escaneo de Google... Por favor, espere y reintente.');
+                await BarcodeScanner.installGoogleBarcodeScannerModule();
+                return;
+            }
+
+            // 3. Start scanning
             const { barcodes } = await BarcodeScanner.scan();
             if (barcodes.length > 0) {
                 handleScanResult(barcodes[0].displayValue);
             }
-        } catch (e) {
-            setError('No se pudo abrir la cámara. Asegúrese de estar en un dispositivo móvil.');
+        } catch (e: any) {
             console.error(e);
+
+            // Provide more specific error messages if possible
+            if (e.message?.includes('Google Barcode Scanner Module is not available')) {
+                setError('El módulo de Google no está listo. Reinténtalo en unos segundos.');
+            } else {
+                setError('No se pudo abrir la cámara. Asegúrate de estar en un dispositivo móvil y tener el módulo de Google Play Services actualizado.');
+            }
         }
     };
 
