@@ -11,8 +11,31 @@ const Scan = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
-    const [isFinished, setIsFinished] = useState(false);
+    const [finished, setFinished] = useState(false);
     const navigate = useNavigate();
+
+    // Sound effect generator
+    const playBeep = (isBonus = false) => {
+        try {
+            const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = context.createOscillator();
+            const gain = context.createGain();
+
+            oscillator.type = 'sine';
+            // Higher frequency for special 10th stamp
+            oscillator.frequency.setValueAtTime(isBonus ? 1200 : 1000, context.currentTime);
+
+            oscillator.connect(gain);
+            gain.connect(context.destination);
+
+            oscillator.start();
+            // Sharp drop for a crisp "beep"
+            gain.gain.exponentialRampToValueAtTime(0.00001, context.currentTime + (isBonus ? 0.3 : 0.1));
+            oscillator.stop(context.currentTime + (isBonus ? 0.3 : 0.1));
+        } catch (e) {
+            console.error('Audio error:', e);
+        }
+    };
 
     useEffect(() => {
         // Check permissions and auto-start on mount
@@ -35,7 +58,7 @@ const Scan = () => {
         setResult(null);
         setError(null);
         setSuccess(false);
-        setIsFinished(false);
+        setFinished(false);
 
         try {
             if (!window.hasOwnProperty('Capacitor')) {
@@ -113,15 +136,15 @@ const Scan = () => {
 
             // 2. Add stamp
             const newStamps = data.current_stamps + 1;
-            const finished = newStamps >= 10;
-            setIsFinished(finished);
+            const isDone = newStamps >= 10;
+            setFinished(isDone);
 
             const { error: updateError } = await supabase
                 .from('memberships')
                 .update({
                     current_stamps: newStamps,
                     last_stamped_at: new Date().toISOString(),
-                    status: finished ? 'completed' : 'active'
+                    status: isDone ? 'completed' : 'active'
                 })
                 .eq('id', data.id);
 
@@ -138,8 +161,9 @@ const Scan = () => {
             });
 
             setSuccess(true);
+            playBeep(isDone);
 
-            if (finished) {
+            if (isDone) {
                 // Special completion message
                 setResult('¡MEMBRESÍA COMPLETADA EXITOSAMENTE!');
                 // Trigger Vibration for 2 seconds
@@ -156,10 +180,9 @@ const Scan = () => {
                 } catch (e) { }
             }
 
-            // Auto redirect to dashboard after success
             setTimeout(() => {
                 navigate('/');
-            }, finished ? 6000 : 3000);
+            }, isDone ? 6000 : 3000);
 
         } catch (e) {
             setError('Ocurrió un error inesperado.');
@@ -192,7 +215,7 @@ const Scan = () => {
 
                     {success && (
                         <div className="text-center animate-in zoom-in p-4">
-                            {isFinished ? (
+                            {finished ? (
                                 <>
                                     <div className="relative mb-4">
                                         <div className="absolute inset-0 animate-ping bg-gold/20 rounded-full" />
