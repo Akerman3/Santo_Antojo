@@ -135,7 +135,7 @@ const MembershipView = () => {
                 />
 
                 {/* Stamp Slots Overlay - Fine Tuned Centering */}
-                <div className="absolute top-[41.4%] left-[41.2%] w-[31.2%] h-[21.2%] grid grid-cols-5 grid-rows-2">
+                <div className="absolute top-[40.8%] left-[39.2%] w-[32.5%] h-[21%] grid grid-cols-5 grid-rows-2">
                     {slots.map((_, index) => (
                         <div
                             key={index}
