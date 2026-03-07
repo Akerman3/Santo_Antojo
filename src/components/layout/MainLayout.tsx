@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, QrCode, LogOut } from 'lucide-react';
+import { Home, QrCode, LogOut, Clock } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -17,7 +17,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, session }) => {
 
     const navItems = [
         { icon: Home, label: 'Inicio', path: '/' },
-        { icon: QrCode, label: 'Escanear', path: '/scan' },
+        { icon: QrCode, label: 'Escáner', path: '/scan' },
+        { icon: Clock, label: 'Actividad', path: '/activity' },
     ];
 
     // For the customer membership view, we might not want the sidebar/nav

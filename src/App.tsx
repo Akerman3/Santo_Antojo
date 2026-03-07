@@ -1,4 +1,4 @@
-import React, { useEffect, useState, Suspense, lazy } from 'react';
+import { useEffect, useState, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 import { supabase } from './lib/supabase';
@@ -8,6 +8,7 @@ import { Loader2, AlertTriangle } from 'lucide-react';
 const AdminDashboard = lazy(() => import('./views/AdminDashboard'));
 const Login = lazy(() => import('./views/Login'));
 const Scan = lazy(() => import('./views/Scan'));
+const ActivityLog = lazy(() => import('./views/ActivityLog'));
 const MembershipView = lazy(() => import('./views/MembershipView'));
 
 const LoadingFallback = () => (
@@ -52,7 +53,7 @@ function App() {
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       console.log('Auth state changed:', _event, !!session);
       setSession(session);
     });
@@ -84,6 +85,7 @@ function App() {
             <Route path="/" element={session ? <AdminDashboard /> : <Navigate to="/login" />} />
             <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
             <Route path="/scan" element={session ? <Scan /> : <Navigate to="/login" />} />
+            <Route path="/activity" element={session ? <ActivityLog /> : <Navigate to="/login" />} />
             <Route path="/membership/:id" element={<MembershipView />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

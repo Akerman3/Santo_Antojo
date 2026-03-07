@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Users, CreditCard, CheckCircle, TrendingUp, Clock, Eye, X, Printer } from 'lucide-react';
+import { Users, CreditCard, CheckCircle, TrendingUp, Clock, Eye, X, Printer, Trash2, AlertTriangle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const AdminDashboard = () => {
@@ -10,11 +10,11 @@ const AdminDashboard = () => {
         completedMemberships: 0,
         totalBatches: 0,
     });
-    const [recentStamps, setRecentStamps] = useState<any[]>([]);
     const [batchList, setBatchList] = useState<any[]>([]);
     const [selectedBatch, setSelectedBatch] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(false);
+    const [deleting, setDeleting] = useState<{ id: string, count: number } | null>(null);
 
     useEffect(() => {
         fetchStats();
@@ -51,9 +51,9 @@ const AdminDashboard = () => {
 
             setBatchList(batches || []);
 
-            const active = mems.filter(m => m.status === 'active').length;
-            const completed = mems.filter(m => m.status === 'completed').length;
-            const stamps = mems.reduce((acc, curr) => acc + (curr.current_stamps || 0), 0);
+            const active = mems.filter((m: any) => m.status === 'active').length;
+            const completed = mems.filter((m: any) => m.status === 'completed').length;
+            const stamps = mems.reduce((acc: number, curr: any) => acc + (curr.current_stamps || 0), 0);
 
             setStats({
                 activeMemberships: active,
@@ -61,30 +61,6 @@ const AdminDashboard = () => {
                 completedMemberships: completed,
                 totalBatches: batches?.length || 0,
             });
-
-            // 3. Get recent stamps activity
-            const { data: logs, error: logError } = await supabase
-                .from('stamps_log')
-                .select(`
-                    id,
-                    created_at,
-                    membership:memberships (
-                        qr_code_id,
-                        current_stamps
-                    )
-                `)
-                .order('created_at', { ascending: false })
-                .limit(5);
-
-            if (logError) throw logError;
-
-            setRecentStamps(logs.map((log: any) => ({
-                id: log.id,
-                customer: `Membresía #${log.membership.qr_code_id.split('/').pop()}`,
-                time: new Date(log.created_at).toLocaleTimeString(),
-                stamps: log.membership.current_stamps,
-                completed: log.membership.current_stamps >= 10
-            })));
 
         } catch (e) {
             console.error('Error fetching stats:', e);
@@ -143,6 +119,87 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleDeleteBatch = async (batchId: string, batchNumber: number) => {
+        if (!deleting || deleting.id !== batchId) {
+            setDeleting({ id: batchId, count: 1 });
+            return;
+        }
+
+        if (deleting.count < 5) {
+            setDeleting({ ...deleting, count: deleting.count + 1 });
+            return;
+        }
+
+        // Final deletion
+        try {
+            setLoading(true);
+            console.log('--- STARTING BATCH DELETION ---');
+            console.log('Batch ID:', batchId);
+
+            // 1. Get all memberships for this batch
+            const { data: memberships, error: fetchErr } = await supabase
+                .from('memberships')
+                .select('id')
+                .eq('batch_id', batchId);
+
+            if (fetchErr) {
+                console.error('Error fetching memberships:', fetchErr);
+                throw fetchErr;
+            }
+
+            console.log(`Found ${memberships?.length || 0} memberships to delete`);
+
+            if (memberships && memberships.length > 0) {
+                const membershipIds = memberships.map((m: any) => m.id);
+
+                // 2. Delete logs for these memberships first
+                console.log('Deleting stamps_log entries...');
+                const { error: logErr } = await supabase
+                    .from('stamps_log')
+                    .delete()
+                    .in('membership_id', membershipIds);
+
+                if (logErr) {
+                    console.error('Error deleting stamps_log:', logErr);
+                    throw logErr;
+                }
+
+                // 3. Delete memberships
+                console.log('Deleting membership entries...');
+                const { error: memErr } = await supabase
+                    .from('memberships')
+                    .delete()
+                    .eq('batch_id', batchId);
+
+                if (memErr) {
+                    console.error('Error deleting memberships:', memErr);
+                    throw memErr;
+                }
+            }
+
+            // 4. Finally delete the batch
+            console.log('Deleting batch entry...');
+            const { error: deleteError } = await supabase
+                .from('batches')
+                .delete()
+                .eq('id', batchId);
+
+            if (deleteError) {
+                console.error('Error deleting batch:', deleteError);
+                throw deleteError;
+            }
+
+            console.log('--- BATCH DELETION COMPLETE ---');
+            alert(`Lote #${batchNumber} eliminado correctamente junto con todas sus membresías e historial.`);
+            setDeleting(null);
+            fetchStats();
+        } catch (e: any) {
+            console.error('FATAL DELETION ERROR:', e);
+            alert('Error al eliminar lote: ' + (e.message || 'Error desconocido'));
+            setLoading(false);
+        }
+    };
+
     const statCards = [
         { label: 'Membresías Activas', value: stats.activeMemberships, icon: Users, color: 'text-blue-400' },
         { label: 'Sellos Aplicados', value: stats.totalStamps, icon: CheckCircle, color: 'text-[#D4AF37]' },
@@ -182,28 +239,14 @@ const AdminDashboard = () => {
 
             {/* Recent Activity & Batch Generation */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 glass-card p-6">
-                    <h3 className="text-xl font-serif font-bold text-white mb-6">Actividad Reciente</h3>
-                    <div className="space-y-4">
-                        {recentStamps.map((item: any) => (
-                            <div key={item.id} className="flex items-center justify-between p-4 bg-zinc-900/50 rounded-xl border border-zinc-800/50 hover:border-gold/20 transition-colors">
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.completed ? 'bg-green-400/20 text-green-400' : 'bg-gold/20 text-gold'}`}>
-                                        <CheckCircle size={20} />
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-white">{item.customer}</p>
-                                        <p className="text-zinc-500 text-xs">{item.time} • Sellos: {item.stamps}/10</p>
-                                    </div>
-                                </div>
-                                {item.completed && (
-                                    <span className="bg-green-400/10 text-green-400 text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded border border-green-400/20">
-                                        ¡Completado!
-                                    </span>
-                                )}
-                            </div>
-                        ))}
+                <div className="lg:col-span-2 glass-card p-6 flex flex-col justify-center items-center text-center space-y-4">
+                    <div className="p-4 rounded-full bg-gold/5 border border-gold/10">
+                        <TrendingUp size={48} className="text-gold" />
                     </div>
+                    <h3 className="text-2xl font-serif font-bold text-white">Panel Principal</h3>
+                    <p className="text-zinc-500 max-w-sm">
+                        Utiliza el menú de navegación inferior para acceder al escáner de códigos QR o ver el historial de actividad.
+                    </p>
                 </div>
 
                 <div className="glass-card p-6 space-y-6">
@@ -229,16 +272,38 @@ const AdminDashboard = () => {
 
                     <div className="pt-4 border-t border-zinc-800">
                         <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">Historial de Lotes</h4>
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                             {batchList.map(batch => (
                                 <div key={batch.id} className="flex justify-between items-center group">
-                                    <span className="text-xs text-zinc-300">Lote #{batch.batch_number}</span>
-                                    <button
-                                        onClick={() => setSelectedBatch(batch)}
-                                        className="text-[10px] text-gold uppercase font-bold tracking-widest flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <Eye size={12} /> Ver QRs
-                                    </button>
+                                    <div>
+                                        <span className="text-xs text-zinc-300 block">Lote #{batch.batch_number}</span>
+                                        <span className="text-[10px] text-zinc-500">{batch.memberships.length} cards</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setSelectedBatch(batch)}
+                                            className="p-1.5 text-gold hover:bg-gold/10 rounded-lg transition-colors"
+                                            title="Ver QRs"
+                                        >
+                                            <Eye size={14} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteBatch(batch.id, batch.batch_number)}
+                                            className={`p-1.5 rounded-lg transition-all duration-300 flex items-center gap-1 ${deleting && deleting.id === batch.id
+                                                ? 'bg-red-500 text-white px-2'
+                                                : 'text-zinc-500 hover:text-red-400 hover:bg-red-400/10'
+                                                }`}
+                                        >
+                                            {deleting && deleting.id === batch.id ? (
+                                                <>
+                                                    <AlertTriangle size={12} />
+                                                    <span className="text-[10px] font-bold">Confirma {deleting.count}/5</span>
+                                                </>
+                                            ) : (
+                                                <Trash2 size={14} />
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>

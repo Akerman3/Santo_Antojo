@@ -13,18 +13,20 @@ const Scan = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Check permissions on mount
-        const checkPermissions = async () => {
+        // Check permissions and auto-start on mount
+        const init = async () => {
             try {
                 const { camera } = await BarcodeScanner.checkPermissions();
                 if (camera !== 'granted') {
                     await BarcodeScanner.requestPermissions();
                 }
+                // Auto-start scan after a short delay to ensure UI is ready
+                setTimeout(startScan, 500);
             } catch (e) {
                 console.error('Permission check failed', e);
             }
         };
-        checkPermissions();
+        init();
     }, []);
 
     const startScan = async () => {
@@ -73,22 +75,24 @@ const Scan = () => {
             if (e.message?.includes('Google Barcode Scanner Module is not available')) {
                 setError('El módulo de Google no está listo. Reinténtalo en unos segundos.');
             } else {
-                setError('No se pudo abrir la cámara. Asegúrate de estar en un dispositivo móvil y tener el módulo de Google Play Services actualizado.');
+                setError('No se pudo abrir la cámara. Asegúrate de estar en un dispositivo móvil.');
             }
         }
     };
 
     const handleScanResult = async (qrId: string) => {
-        setResult(qrId);
+        // Extract ID from URL if scanned as a full link
+        const cleanId = qrId.includes('/') ? qrId.split('/').pop() || qrId : qrId;
+
+        setResult(cleanId);
         setLoading(true);
 
         try {
             // 1. Validate QR in Supabase
-            // This is a simplified version, in production we would run a stored procedure or transaction
             const { data, error: fetchError } = await supabase
                 .from('memberships')
                 .select('*')
-                .eq('qr_code_id', qrId)
+                .eq('qr_code_id', cleanId)
                 .single();
 
             if (fetchError || !data) {
@@ -97,13 +101,23 @@ const Scan = () => {
                 return;
             }
 
+            // Check if already completed
+            if (data.current_stamps >= 10 || data.status === 'completed') {
+                setError('ESTA TARJETA DE MEMBRESÍA YA HA SIDO COMPLETADA, SOLICITA UNA NUEVA MEMBRESÍA');
+                setLoading(false);
+                return;
+            }
+
             // 2. Add stamp
             const newStamps = data.current_stamps + 1;
+            const isFinished = newStamps >= 10;
+
             const { error: updateError } = await supabase
                 .from('memberships')
                 .update({
                     current_stamps: newStamps,
-                    last_stamped_at: new Date().toISOString()
+                    last_stamped_at: new Date().toISOString(),
+                    status: isFinished ? 'completed' : 'active'
                 })
                 .eq('id', data.id);
 
@@ -121,10 +135,15 @@ const Scan = () => {
 
             setSuccess(true);
 
+            if (isFinished) {
+                // Special completion message
+                setResult('¡MEMBRESÍA COMPLETADA EXITOSAMENTE!');
+            }
+
             // Auto redirect to dashboard after success
             setTimeout(() => {
                 navigate('/');
-            }, 3000);
+            }, isFinished ? 6000 : 3000);
 
         } catch (e) {
             setError('Ocurrió un error inesperado.');
