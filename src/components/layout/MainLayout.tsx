@@ -35,9 +35,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, session }) => {
                     <div className="flex justify-around items-center h-16 md:flex-col md:h-full md:py-8 md:justify-start md:gap-8">
                         <div className="hidden md:block mb-10 px-6">
                             <h1 className="text-2xl font-serif gold-gradient font-bold tracking-wider">
-                                PANEL SA
+                                SANTO ANTOJO
                             </h1>
-                            <p className="text-[10px] text-zinc-500 uppercase tracking-[0.2em]">Administración de Membresías</p>
+                            <p className="text-[10px] text-zinc-500 uppercase tracking-[0.2em]">Membresías Premium</p>
                         </div>
 
                         {navItems.map((item) => (
