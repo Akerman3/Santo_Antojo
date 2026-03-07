@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
-import { Camera, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Camera, CheckCircle, XCircle, Loader2, PartyPopper } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -10,6 +11,7 @@ const Scan = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [isFinished, setIsFinished] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -33,6 +35,7 @@ const Scan = () => {
         setResult(null);
         setError(null);
         setSuccess(false);
+        setIsFinished(false);
 
         try {
             if (!window.hasOwnProperty('Capacitor')) {
@@ -110,14 +113,15 @@ const Scan = () => {
 
             // 2. Add stamp
             const newStamps = data.current_stamps + 1;
-            const isFinished = newStamps >= 10;
+            const finished = newStamps >= 10;
+            setIsFinished(finished);
 
             const { error: updateError } = await supabase
                 .from('memberships')
                 .update({
                     current_stamps: newStamps,
                     last_stamped_at: new Date().toISOString(),
-                    status: isFinished ? 'completed' : 'active'
+                    status: finished ? 'completed' : 'active'
                 })
                 .eq('id', data.id);
 
@@ -135,15 +139,27 @@ const Scan = () => {
 
             setSuccess(true);
 
-            if (isFinished) {
+            if (finished) {
                 // Special completion message
                 setResult('¡MEMBRESÍA COMPLETADA EXITOSAMENTE!');
+                // Trigger Vibration for 2 seconds
+                try {
+                    await Haptics.vibrate({ duration: 2000 });
+                } catch (e) {
+                    // Fallback to navigator.vibrate if haptics fail
+                    if (navigator.vibrate) navigator.vibrate(2000);
+                }
+            } else {
+                // Short impact for normal stamp
+                try {
+                    await Haptics.impact({ style: ImpactStyle.Heavy });
+                } catch (e) { }
             }
 
             // Auto redirect to dashboard after success
             setTimeout(() => {
                 navigate('/');
-            }, isFinished ? 6000 : 3000);
+            }, finished ? 6000 : 3000);
 
         } catch (e) {
             setError('Ocurrió un error inesperado.');
@@ -175,17 +191,32 @@ const Scan = () => {
                     )}
 
                     {success && (
-                        <div className="text-center animate-in zoom-in">
-                            <CheckCircle className="text-green-400 mx-auto mb-2" size={60} />
-                            <p className="text-green-400 font-bold uppercase tracking-widest text-sm">¡Sello Exitoso!</p>
-                            <p className="text-white text-xs mt-1">ID: {result}</p>
+                        <div className="text-center animate-in zoom-in p-4">
+                            {isFinished ? (
+                                <>
+                                    <div className="relative mb-4">
+                                        <div className="absolute inset-0 animate-ping bg-gold/20 rounded-full" />
+                                        <PartyPopper className="text-gold mx-auto relative z-10" size={80} />
+                                    </div>
+                                    <p className="text-gold font-bold uppercase tracking-widest text-lg leading-tight">
+                                        ¡MEMBRESÍA COMPLETADA EXITOSAMENTE!
+                                    </p>
+                                    <p className="text-white/60 text-[10px] mt-2 font-mono uppercase">ID: {result}</p>
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle className="text-green-400 mx-auto mb-2" size={60} />
+                                    <p className="text-green-400 font-bold uppercase tracking-widest text-sm">¡Sello Exitoso!</p>
+                                    <p className="text-white text-xs mt-1">ID: {result}</p>
+                                </>
+                            )}
                         </div>
                     )}
 
                     {error && (
                         <div className="text-center animate-in zoom-in p-4">
                             <XCircle className="text-red-400 mx-auto mb-2" size={60} />
-                            <p className="text-red-400 font-medium text-sm">{error}</p>
+                            <p className="text-red-400 font-medium text-sm leading-tight">{error}</p>
                         </div>
                     )}
                 </div>
